@@ -256,45 +256,72 @@ const PacManGame = () => {
     });
   }, [isValidMove, moveEntity]);
 
-  const handleKeyPress = useCallback((event: KeyboardEvent) => {
-    if (gameState.gameStatus !== 'playing') return;
+  const handleKeyPress = useCallback(
+    (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
 
-    let newDirection: Direction | null = null;
-    
-    switch (event.key.toLowerCase()) {
-      case 'arrowup':
-      case 'w':
-        newDirection = 'UP';
-        break;
-      case 'arrowdown':
-      case 's':
-        newDirection = 'DOWN';
-        break;
-      case 'arrowleft':
-      case 'a':
-        newDirection = 'LEFT';
-        break;
-      case 'arrowright':
-      case 'd':
-        newDirection = 'RIGHT';
-        break;
-      case ' ':
+      // Controles globais (funcionam mesmo quando o jogo não está em andamento)
+      if (key === 'enter' && gameState.gameStatus !== 'playing') {
+        event.preventDefault();
+        startGame();
+        return;
+      }
+
+      if (key === 'r' && gameState.gameStatus === 'gameover') {
+        event.preventDefault();
+        resetGame();
+        return;
+      }
+
+      if (key === 'escape') {
         event.preventDefault();
         setGameState(prev => ({
           ...prev,
           gameStatus: prev.gameStatus === 'playing' ? 'paused' : 'playing'
         }));
         return;
-    }
+      }
 
-    if (newDirection) {
-      event.preventDefault();
-      setGameState(prev => ({
-        ...prev,
-        pacman: { ...prev.pacman, nextDirection: newDirection! }
-      }));
-    }
-  }, [gameState.gameStatus]);
+      if (gameState.gameStatus !== 'playing') return;
+
+      let newDirection: Direction | null = null;
+
+      switch (key) {
+        case 'arrowup':
+        case 'w':
+          newDirection = 'UP';
+          break;
+        case 'arrowdown':
+        case 's':
+          newDirection = 'DOWN';
+          break;
+        case 'arrowleft':
+        case 'a':
+          newDirection = 'LEFT';
+          break;
+        case 'arrowright':
+        case 'd':
+          newDirection = 'RIGHT';
+          break;
+        case ' ':
+          event.preventDefault();
+          setGameState(prev => ({
+            ...prev,
+            gameStatus: prev.gameStatus === 'playing' ? 'paused' : 'playing'
+          }));
+          return;
+      }
+
+      if (newDirection) {
+        event.preventDefault();
+        setGameState(prev => ({
+          ...prev,
+          pacman: { ...prev.pacman, nextDirection: newDirection }
+        }));
+      }
+    },
+    [gameState.gameStatus, startGame, resetGame]
+  );
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
