@@ -7,10 +7,11 @@ import { Play, RotateCcw, Pause } from 'lucide-react';
 interface GameUIProps {
   gameState: GameState;
   onStart: () => void;
+  onPause?: () => void;
   onReset: () => void;
 }
 
-const GameUI = ({ gameState, onStart, onReset }: GameUIProps) => {
+const GameUI = ({ gameState, onStart, onPause, onReset }: GameUIProps) => {
   const { score, lives, level, gameStatus } = gameState;
 
   return (
@@ -78,7 +79,7 @@ const GameUI = ({ gameState, onStart, onReset }: GameUIProps) => {
         
         {gameStatus === 'playing' && (
           <Button
-            onClick={onStart}
+            onClick={onPause}
             className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 text-lg"
           >
             <Pause className="w-5 h-5 mr-2" />

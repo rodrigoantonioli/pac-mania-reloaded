@@ -15,15 +15,15 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
       const rotation = {
         'RIGHT': 'rotate-0',
         'LEFT': 'rotate-180',
-        'UP': 'rotate-90',
-        'DOWN': 'rotate-[270deg]'
+        'UP': '-rotate-90',
+        'DOWN': 'rotate-90'
       }[pacman.direction];
       
       return (
-        <div className={`w-full h-full flex items-center justify-center ${rotation} transform transition-transform duration-150`}>
-          <div className="w-6 h-6 bg-yellow-400 rounded-full relative">
-            <div className="absolute inset-0 bg-yellow-400 rounded-full animate-pulse" />
-            <div className="absolute top-1/2 right-0 w-0 h-0 border-l-[6px] border-l-black border-t-[3px] border-t-transparent border-b-[3px] border-b-transparent transform -translate-y-1/2" />
+        <div className={`w-full h-full flex items-center justify-center ${rotation} transform transition-transform duration-100`}>
+          <div className="w-5 h-5 bg-yellow-400 rounded-full relative animate-pulse">
+            {/* Boca do Pac-Man */}
+            <div className="absolute top-1/2 right-0 w-0 h-0 border-l-[5px] border-l-black border-t-[2.5px] border-t-transparent border-b-[2.5px] border-b-transparent transform -translate-y-1/2" />
           </div>
         </div>
       );
@@ -44,35 +44,41 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
       
       return (
         <div className="w-full h-full flex items-center justify-center">
-          <div className={`w-6 h-6 ${colorClass} rounded-t-full relative transition-colors duration-300`}>
-            <div className="absolute bottom-0 left-0 right-0 h-3 bg-current">
-              <div className="absolute bottom-0 left-0 w-2 h-2 bg-black rounded-full" />
-              <div className="absolute bottom-0 right-0 w-2 h-2 bg-black rounded-full" />
-              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-2 bg-current" />
+          <div className={`w-5 h-5 ${colorClass} relative transition-colors duration-300`}>
+            {/* Corpo do fantasma */}
+            <div className="w-full h-3 rounded-t-full bg-current" />
+            <div className="w-full h-2 bg-current relative">
+              {/* Ondas na parte inferior */}
+              <div className="absolute bottom-0 left-0 w-1 h-1 bg-black rounded-full" />
+              <div className="absolute bottom-0 left-2 w-1 h-1 bg-black rounded-full" />
+              <div className="absolute bottom-0 right-0 w-1 h-1 bg-black rounded-full" />
             </div>
             {/* Olhos */}
             <div className="absolute top-1 left-1 w-1 h-1 bg-white rounded-full" />
             <div className="absolute top-1 right-1 w-1 h-1 bg-white rounded-full" />
+            {/* Pupilas */}
+            <div className="absolute top-1.5 left-1 w-0.5 h-0.5 bg-black rounded-full" />
+            <div className="absolute top-1.5 right-1 w-0.5 h-0.5 bg-black rounded-full" />
           </div>
         </div>
       );
     }
 
     // Conteúdo baseado no maze
-    const cellValue = maze[y][x];
+    const cellValue = maze[y] && maze[y][x] !== undefined ? maze[y][x] : 0;
     switch (cellValue) {
       case 0: // Parede
-        return <div className="w-full h-full bg-blue-600 border border-blue-400 shadow-inner" />;
+        return <div className="w-full h-full bg-blue-700 border border-blue-500 shadow-inner" />;
       case 1: // Dot
         return (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="w-1 h-1 bg-yellow-300 rounded-full animate-pulse" />
+          <div className="w-full h-full flex items-center justify-center bg-black">
+            <div className="w-1 h-1 bg-yellow-300 rounded-full" />
           </div>
         );
       case 2: // Power pellet
         return (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="w-3 h-3 bg-yellow-300 rounded-full animate-bounce" />
+          <div className="w-full h-full flex items-center justify-center bg-black">
+            <div className="w-3 h-3 bg-yellow-300 rounded-full animate-pulse" />
           </div>
         );
       case 3: // Espaço vazio
@@ -88,15 +94,15 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
         style={{
           gridTemplateColumns: `repeat(${MAZE_WIDTH}, 1fr)`,
           gridTemplateRows: `repeat(${MAZE_HEIGHT}, 1fr)`,
-          width: '600px',
-          height: '700px'
+          width: '540px',
+          height: '620px'
         }}
       >
         {maze.map((row, y) =>
           row.map((_, x) => (
             <div
               key={`${x}-${y}`}
-              className="relative transition-all duration-150"
+              className="relative"
               style={{ width: '100%', height: '100%' }}
             >
               {getCellContent(x, y)}
@@ -107,20 +113,20 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
       
       {/* Overlay para status do jogo */}
       {gameState.gameStatus !== 'playing' && (
-        <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center">
           <div className="text-center">
             {gameState.gameStatus === 'ready' && (
-              <div className="text-yellow-400 text-2xl font-bold animate-pulse">
+              <div className="text-yellow-400 text-3xl font-bold animate-pulse font-mono">
                 READY?
               </div>
             )}
             {gameState.gameStatus === 'paused' && (
-              <div className="text-yellow-400 text-2xl font-bold">
+              <div className="text-yellow-400 text-3xl font-bold font-mono">
                 PAUSED
               </div>
             )}
             {gameState.gameStatus === 'gameOver' && (
-              <div className="text-red-400 text-2xl font-bold animate-pulse">
+              <div className="text-red-400 text-3xl font-bold animate-pulse font-mono">
                 GAME OVER
               </div>
             )}

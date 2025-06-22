@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import GameBoard from './GameBoard';
 import GameUI from './GameUI';
 import { GameState, Position, Direction, Ghost } from '@/types/game';
@@ -7,11 +7,15 @@ import { MAZE_WIDTH, MAZE_HEIGHT, INITIAL_MAZE } from '@/utils/mazeData';
 import { toast } from 'sonner';
 
 const PacManGame = () => {
+  const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const ghostLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const powerPelletTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const [gameState, setGameState] = useState<GameState>({
     score: 0,
     lives: 3,
     level: 1,
-    gameStatus: 'ready', // ready, playing, paused, gameOver
+    gameStatus: 'ready',
     pacman: {
       position: { x: 13, y: 26 },
       direction: 'RIGHT',
@@ -23,7 +27,7 @@ const PacManGame = () => {
       { id: 3, position: { x: 13, y: 13 }, direction: 'UP', color: 'cyan', mode: 'scatter' },
       { id: 4, position: { x: 14, y: 13 }, direction: 'UP', color: 'orange', mode: 'scatter' }
     ],
-    maze: INITIAL_MAZE,
+    maze: INITIAL_MAZE.map(row => [...row]),
     dotsRemaining: 0
   });
 
@@ -33,16 +37,16 @@ const PacManGame = () => {
     setGameState(prev => ({ ...prev, dotsRemaining: initialDots }));
   }, []);
 
-  const moveEntity = (position: Position, direction: Direction): Position => {
+  const isValidMove = (position: Position, direction: Direction): boolean => {
     let newX = position.x;
     let newY = position.y;
 
     switch (direction) {
       case 'UP':
-        newY = Math.max(0, position.y - 1);
+        newY = position.y - 1;
         break;
       case 'DOWN':
-        newY = Math.min(MAZE_HEIGHT - 1, position.y + 1);
+        newY = position.y + 1;
         break;
       case 'LEFT':
         newX = position.x - 1;
@@ -54,138 +58,218 @@ const PacManGame = () => {
         break;
     }
 
-    // Verificar se a nova posição é uma parede
-    if (gameState.maze[newY] && gameState.maze[newY][newX] === 0) {
-      return position; // Não pode mover
+    // Verificar limites do maze
+    if (newY < 0 || newY >= MAZE_HEIGHT) return false;
+    
+    // Verificar se não é parede
+    return gameState.maze[newY] && gameState.maze[newY][newX] !== 0;
+  };
+
+  const moveEntity = (position: Position, direction: Direction): Position => {
+    if (!isValidMove(position, direction)) {
+      return position;
+    }
+
+    let newX = position.x;
+    let newY = position.y;
+
+    switch (direction) {
+      case 'UP':
+        newY = position.y - 1;
+        break;
+      case 'DOWN':
+        newY = position.y + 1;
+        break;
+      case 'LEFT':
+        newX = position.x - 1;
+        if (newX < 0) newX = MAZE_WIDTH - 1;
+        break;
+      case 'RIGHT':
+        newX = position.x + 1;
+        if (newX >= MAZE_WIDTH) newX = 0;
+        break;
     }
 
     return { x: newX, y: newY };
   };
 
-  const checkCollisions = useCallback(() => {
-    const { pacman, ghosts } = gameState;
-    
-    // Verificar colisão com fantasmas
-    const collision = ghosts.find(ghost => 
-      ghost.position.x === pacman.position.x && 
-      ghost.position.y === pacman.position.y
-    );
+  const handleCollisions = useCallback(() => {
+    setGameState(prev => {
+      const { pacman, ghosts } = prev;
+      
+      // Verificar colisão com fantasmas
+      const collidedGhost = ghosts.find(ghost => 
+        ghost.position.x === pacman.position.x && 
+        ghost.position.y === pacman.position.y
+      );
 
-    if (collision) {
-      if (collision.mode === 'frightened') {
-        // Pac-Man comeu um fantasma
-        setGameState(prev => ({
-          ...prev,
-          score: prev.score + 200,
-          ghosts: prev.ghosts.map(g => 
-            g.id === collision.id 
-              ? { ...g, position: { x: 13, y: 13 }, mode: 'scatter' }
-              : g
-          )
-        }));
-        toast("Fantasma comido! +200 pontos!");
-      } else {
-        // Pac-Man foi pego
-        setGameState(prev => ({
-          ...prev,
-          lives: prev.lives - 1,
-          pacman: { ...prev.pacman, position: { x: 13, y: 26 } }
-        }));
-        toast("Você foi pego!");
+      if (collidedGhost) {
+        if (collidedGhost.mode === 'frightened') {
+          // Pac-Man comeu um fantasma
+          toast("Fantasma comido! +200 pontos!");
+          return {
+            ...prev,
+            score: prev.score + 200,
+            ghosts: prev.ghosts.map(g => 
+              g.id === collidedGhost.id 
+                ? { ...g, position: { x: 13, y: 13 }, mode: 'scatter' }
+                : g
+            )
+          };
+        } else {
+          // Pac-Man foi pego
+          toast("Você foi pego!");
+          return {
+            ...prev,
+            lives: prev.lives - 1,
+            pacman: { 
+              ...prev.pacman, 
+              position: { x: 13, y: 26 },
+              direction: 'RIGHT',
+              nextDirection: 'RIGHT'
+            },
+            ghosts: [
+              { id: 1, position: { x: 13, y: 11 }, direction: 'UP', color: 'red', mode: 'scatter' },
+              { id: 2, position: { x: 12, y: 13 }, direction: 'UP', color: 'pink', mode: 'scatter' },
+              { id: 3, position: { x: 13, y: 13 }, direction: 'UP', color: 'cyan', mode: 'scatter' },
+              { id: 4, position: { x: 14, y: 13 }, direction: 'UP', color: 'orange', mode: 'scatter' }
+            ]
+          };
+        }
       }
-    }
-  }, [gameState]);
+      
+      return prev;
+    });
+  }, []);
 
   const eatDot = useCallback(() => {
-    const { pacman, maze } = gameState;
-    const cellValue = maze[pacman.position.y][pacman.position.x];
-    
-    if (cellValue === 1) {
-      // Dot normal
-      const newMaze = maze.map(row => [...row]);
-      newMaze[pacman.position.y][pacman.position.x] = 3; // Célula vazia
+    setGameState(prev => {
+      const { pacman, maze } = prev;
+      const cellValue = maze[pacman.position.y][pacman.position.x];
       
-      setGameState(prev => ({
-        ...prev,
-        maze: newMaze,
-        score: prev.score + 10,
-        dotsRemaining: prev.dotsRemaining - 1
-      }));
-    } else if (cellValue === 2) {
-      // Power pellet
-      const newMaze = maze.map(row => [...row]);
-      newMaze[pacman.position.y][pacman.position.x] = 3;
-      
-      setGameState(prev => ({
-        ...prev,
-        maze: newMaze,
-        score: prev.score + 50,
-        dotsRemaining: prev.dotsRemaining - 1,
-        ghosts: prev.ghosts.map(ghost => ({ ...ghost, mode: 'frightened' }))
-      }));
-      
-      // Retornar fantasmas ao normal após 10 segundos
-      setTimeout(() => {
-        setGameState(prev => ({
+      if (cellValue === 1) {
+        // Dot normal
+        const newMaze = maze.map(row => [...row]);
+        newMaze[pacman.position.y][pacman.position.x] = 3;
+        
+        return {
           ...prev,
-          ghosts: prev.ghosts.map(ghost => ({ ...ghost, mode: 'scatter' }))
-        }));
-      }, 10000);
+          maze: newMaze,
+          score: prev.score + 10,
+          dotsRemaining: prev.dotsRemaining - 1
+        };
+      } else if (cellValue === 2) {
+        // Power pellet
+        const newMaze = maze.map(row => [...row]);
+        newMaze[pacman.position.y][pacman.position.x] = 3;
+        
+        // Limpar timeout anterior se existir
+        if (powerPelletTimeoutRef.current) {
+          clearTimeout(powerPelletTimeoutRef.current);
+        }
+        
+        // Assustar fantasmas por 10 segundos
+        powerPelletTimeoutRef.current = setTimeout(() => {
+          setGameState(current => ({
+            ...current,
+            ghosts: current.ghosts.map(ghost => ({ ...ghost, mode: 'scatter' }))
+          }));
+        }, 10000);
+        
+        toast("Power Pellet! Fantasmas estão assustados!");
+        
+        return {
+          ...prev,
+          maze: newMaze,
+          score: prev.score + 50,
+          dotsRemaining: prev.dotsRemaining - 1,
+          ghosts: prev.ghosts.map(ghost => ({ ...ghost, mode: 'frightened' }))
+        };
+      }
       
-      toast("Power Pellet! Fantasmas estão assustados!");
-    }
-  }, [gameState]);
+      return prev;
+    });
+  }, []);
 
   const moveGhosts = useCallback(() => {
     setGameState(prev => {
       const newGhosts = prev.ghosts.map(ghost => {
         const directions: Direction[] = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+        
+        // Filtrar direções válidas (não pode ir para trás)
+        const oppositeDirection = {
+          'UP': 'DOWN',
+          'DOWN': 'UP',
+          'LEFT': 'RIGHT',
+          'RIGHT': 'LEFT'
+        }[ghost.direction] as Direction;
+        
         const validDirections = directions.filter(dir => {
-          const newPos = moveEntity(ghost.position, dir);
-          return newPos.x !== ghost.position.x || newPos.y !== ghost.position.y;
+          if (dir === oppositeDirection) return false; // Não pode voltar
+          return isValidMove(ghost.position, dir);
         });
         
-        if (validDirections.length === 0) return ghost;
+        if (validDirections.length === 0) {
+          // Se não há direções válidas, pode voltar
+          const backDirection = oppositeDirection;
+          if (isValidMove(ghost.position, backDirection)) {
+            const newPosition = moveEntity(ghost.position, backDirection);
+            return { ...ghost, position: newPosition, direction: backDirection };
+          }
+          return ghost;
+        }
         
-        // IA simples: movimento aleatório
-        const randomDirection = validDirections[Math.floor(Math.random() * validDirections.length)];
-        const newPosition = moveEntity(ghost.position, randomDirection);
+        // IA dos fantasmas: seguir Pac-Man se no modo chase
+        let chosenDirection: Direction;
         
-        return {
-          ...ghost,
-          position: newPosition,
-          direction: randomDirection
-        };
+        if (ghost.mode === 'chase' && Math.random() > 0.3) {
+          // 70% chance de seguir Pac-Man
+          const dx = prev.pacman.position.x - ghost.position.x;
+          const dy = prev.pacman.position.y - ghost.position.y;
+          
+          if (Math.abs(dx) > Math.abs(dy)) {
+            chosenDirection = dx > 0 ? 'RIGHT' : 'LEFT';
+          } else {
+            chosenDirection = dy > 0 ? 'DOWN' : 'UP';
+          }
+          
+          // Se a direção escolhida não é válida, escolher aleatória
+          if (!validDirections.includes(chosenDirection)) {
+            chosenDirection = validDirections[Math.floor(Math.random() * validDirections.length)];
+          }
+        } else {
+          // Movimento aleatório
+          chosenDirection = validDirections[Math.floor(Math.random() * validDirections.length)];
+        }
+        
+        const newPosition = moveEntity(ghost.position, chosenDirection);
+        return { ...ghost, position: newPosition, direction: chosenDirection };
       });
       
       return { ...prev, ghosts: newGhosts };
     });
-  }, []);
+  }, [isValidMove, moveEntity]);
 
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     if (gameState.gameStatus !== 'playing') return;
 
     let newDirection: Direction | null = null;
     
-    switch (event.key) {
-      case 'ArrowUp':
+    switch (event.key.toLowerCase()) {
+      case 'arrowup':
       case 'w':
-      case 'W':
         newDirection = 'UP';
         break;
-      case 'ArrowDown':
+      case 'arrowdown':
       case 's':
-      case 'S':
         newDirection = 'DOWN';
         break;
-      case 'ArrowLeft':
+      case 'arrowleft':
       case 'a':
-      case 'A':
         newDirection = 'LEFT';
         break;
-      case 'ArrowRight':
+      case 'arrowright':
       case 'd':
-      case 'D':
         newDirection = 'RIGHT';
         break;
       case ' ':
@@ -211,52 +295,93 @@ const PacManGame = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
 
-  // Game loop
+  // Game loop principal
   useEffect(() => {
-    if (gameState.gameStatus !== 'playing') return;
+    if (gameState.gameStatus !== 'playing') {
+      if (gameLoopRef.current) {
+        clearInterval(gameLoopRef.current);
+        gameLoopRef.current = null;
+      }
+      return;
+    }
 
-    const gameLoop = setInterval(() => {
+    gameLoopRef.current = setInterval(() => {
       setGameState(prev => {
+        // Verificar se pode mudar de direção
+        const canChangeDirection = isValidMove(prev.pacman.position, prev.pacman.nextDirection);
+        const direction = canChangeDirection ? prev.pacman.nextDirection : prev.pacman.direction;
+        
         // Mover Pac-Man
-        const canMoveInNextDirection = (() => {
-          const testPos = moveEntity(prev.pacman.position, prev.pacman.nextDirection);
-          return testPos.x !== prev.pacman.position.x || testPos.y !== prev.pacman.position.y;
-        })();
-
-        const direction = canMoveInNextDirection ? prev.pacman.nextDirection : prev.pacman.direction;
-        const newPacmanPosition = moveEntity(prev.pacman.position, direction);
-
+        const newPosition = moveEntity(prev.pacman.position, direction);
+        
         return {
           ...prev,
           pacman: {
             ...prev.pacman,
-            position: newPacmanPosition,
+            position: newPosition,
             direction: direction
           }
         };
       });
-    }, 200);
+    }, 150);
 
-    return () => clearInterval(gameLoop);
-  }, [gameState.gameStatus]);
+    return () => {
+      if (gameLoopRef.current) {
+        clearInterval(gameLoopRef.current);
+        gameLoopRef.current = null;
+      }
+    };
+  }, [gameState.gameStatus, isValidMove, moveEntity]);
 
-  // Ghost movement loop
+  // Loop dos fantasmas
   useEffect(() => {
-    if (gameState.gameStatus !== 'playing') return;
+    if (gameState.gameStatus !== 'playing') {
+      if (ghostLoopRef.current) {
+        clearInterval(ghostLoopRef.current);
+        ghostLoopRef.current = null;
+      }
+      return;
+    }
 
-    const ghostLoop = setInterval(moveGhosts, 400);
-    return () => clearInterval(ghostLoop);
+    ghostLoopRef.current = setInterval(() => {
+      moveGhosts();
+    }, 300);
+
+    return () => {
+      if (ghostLoopRef.current) {
+        clearInterval(ghostLoopRef.current);
+        ghostLoopRef.current = null;
+      }
+    };
   }, [gameState.gameStatus, moveGhosts]);
 
-  // Check for collisions and eat dots
+  // Verificar colisões e comer dots após movimento
   useEffect(() => {
     if (gameState.gameStatus === 'playing') {
       eatDot();
-      checkCollisions();
+      handleCollisions();
     }
-  }, [gameState.pacman.position, checkCollisions, eatDot]);
+  }, [gameState.pacman.position, eatDot, handleCollisions]);
 
-  // Check win/lose conditions
+  // Alternar modo dos fantasmas periodicamente
+  useEffect(() => {
+    if (gameState.gameStatus !== 'playing') return;
+
+    const modeInterval = setInterval(() => {
+      setGameState(prev => ({
+        ...prev,
+        ghosts: prev.ghosts.map(ghost => 
+          ghost.mode === 'frightened' 
+            ? ghost 
+            : { ...ghost, mode: ghost.mode === 'scatter' ? 'chase' : 'scatter' }
+        )
+      }));
+    }, 7000); // Alternar a cada 7 segundos
+
+    return () => clearInterval(modeInterval);
+  }, [gameState.gameStatus]);
+
+  // Verificar condições de vitória/derrota
   useEffect(() => {
     if (gameState.lives <= 0) {
       setGameState(prev => ({ ...prev, gameStatus: 'gameOver' }));
@@ -268,11 +393,25 @@ const PacManGame = () => {
   }, [gameState.lives, gameState.dotsRemaining]);
 
   const startGame = () => {
-    setGameState(prev => ({ ...prev, gameStatus: 'playing' }));
-    toast("Jogo iniciado! Use as setas ou WASD para mover.");
+    if (gameState.gameStatus === 'paused') {
+      setGameState(prev => ({ ...prev, gameStatus: 'playing' }));
+    } else {
+      setGameState(prev => ({ ...prev, gameStatus: 'playing' }));
+      toast("Jogo iniciado! Use as setas ou WASD para mover.");
+    }
+  };
+
+  const pauseGame = () => {
+    setGameState(prev => ({ ...prev, gameStatus: 'paused' }));
   };
 
   const resetGame = () => {
+    // Limpar timeouts
+    if (powerPelletTimeoutRef.current) {
+      clearTimeout(powerPelletTimeoutRef.current);
+      powerPelletTimeoutRef.current = null;
+    }
+    
     const initialDots = INITIAL_MAZE.flat().filter(cell => cell === 1 || cell === 2).length;
     setGameState({
       score: 0,
@@ -295,11 +434,21 @@ const PacManGame = () => {
     });
   };
 
+  // Cleanup na desmontagem
+  useEffect(() => {
+    return () => {
+      if (gameLoopRef.current) clearInterval(gameLoopRef.current);
+      if (ghostLoopRef.current) clearInterval(ghostLoopRef.current);
+      if (powerPelletTimeoutRef.current) clearTimeout(powerPelletTimeoutRef.current);
+    };
+  }, []);
+
   return (
     <div className="flex flex-col items-center gap-4 p-4">
       <GameUI 
         gameState={gameState}
         onStart={startGame}
+        onPause={pauseGame}
         onReset={resetGame}
       />
       <GameBoard gameState={gameState} />
