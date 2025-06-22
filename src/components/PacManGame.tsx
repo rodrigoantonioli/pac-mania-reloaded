@@ -21,7 +21,8 @@ const PacManGame = () => {
   const modeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [gameState, setGameState] = useState<GameState>(createInitialGameState());
-  // Função para verificar movimento válido
+
+  // Funções básicas de movimento e validação
   const isValidMove = useCallback((maze: number[][], position: Position, direction: Direction): boolean => {
     let newX = position.x;
     let newY = position.y;
@@ -73,6 +74,112 @@ const PacManGame = () => {
 
     return { x: newX, y: newY };
   }, []);
+
+  // Funções de controle do jogo - definidas antes de serem usadas
+  const startGame = useCallback(() => {
+    setGameState(prev => {
+      if (prev.gameStatus === 'paused') {
+        return { ...prev, gameStatus: 'playing' };
+      } else {
+        toast("Jogo iniciado! Use as setas ou WASD para mover.");
+        return { ...prev, gameStatus: 'playing' };
+      }
+    });
+  }, []);
+
+  const pauseGame = useCallback(() => {
+    setGameState(prev => ({ ...prev, gameStatus: 'paused' }));
+  }, []);
+
+  const resetGame = useCallback(() => {
+    // Limpar todos os timeouts e intervalos
+    if (powerPelletTimeoutRef.current) {
+      clearTimeout(powerPelletTimeoutRef.current);
+      powerPelletTimeoutRef.current = null;
+    }
+    if (gameLoopRef.current) {
+      clearInterval(gameLoopRef.current);
+      gameLoopRef.current = null;
+    }
+    if (ghostLoopRef.current) {
+      clearInterval(ghostLoopRef.current);
+      ghostLoopRef.current = null;
+    }
+    if (modeIntervalRef.current) {
+      clearInterval(modeIntervalRef.current);
+      modeIntervalRef.current = null;
+    }
+    
+    setGameState(createInitialGameState());
+  }, []);
+
+  // Controle de teclado - agora pode referenciar startGame e resetGame
+  const handleKeyPress = useCallback(
+    (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+
+      // Controles globais (funcionam mesmo quando o jogo não está em andamento)
+      if (key === 'enter' && gameState.gameStatus !== 'playing') {
+        event.preventDefault();
+        startGame();
+        return;
+      }
+
+      if (key === 'r' && gameState.gameStatus === 'gameOver') {
+        event.preventDefault();
+        resetGame();
+        return;
+      }
+
+      if (key === 'escape') {
+        event.preventDefault();
+        setGameState(prev => ({
+          ...prev,
+          gameStatus: prev.gameStatus === 'playing' ? 'paused' : 'playing'
+        }));
+        return;
+      }
+
+      if (gameState.gameStatus !== 'playing') return;
+
+      let newDirection: Direction | null = null;
+
+      switch (key) {
+        case 'arrowup':
+        case 'w':
+          newDirection = 'UP';
+          break;
+        case 'arrowdown':
+        case 's':
+          newDirection = 'DOWN';
+          break;
+        case 'arrowleft':
+        case 'a':
+          newDirection = 'LEFT';
+          break;
+        case 'arrowright':
+        case 'd':
+          newDirection = 'RIGHT';
+          break;
+        case ' ':
+          event.preventDefault();
+          setGameState(prev => ({
+            ...prev,
+            gameStatus: prev.gameStatus === 'playing' ? 'paused' : 'playing'
+          }));
+          return;
+      }
+
+      if (newDirection) {
+        event.preventDefault();
+        setGameState(prev => ({
+          ...prev,
+          pacman: { ...prev.pacman, nextDirection: newDirection }
+        }));
+      }
+    },
+    [gameState.gameStatus, startGame, resetGame]
+  );
 
   const handleCollisions = useCallback(() => {
     setGameState(prev => {
@@ -242,73 +349,6 @@ const PacManGame = () => {
     });
   }, [isValidMove, moveEntity]);
 
-  const handleKeyPress = useCallback(
-    (event: KeyboardEvent) => {
-      const key = event.key.toLowerCase();
-
-      // Controles globais (funcionam mesmo quando o jogo não está em andamento)
-      if (key === 'enter' && gameState.gameStatus !== 'playing') {
-        event.preventDefault();
-        startGame();
-        return;
-      }
-
-      if (key === 'r' && gameState.gameStatus === 'gameover') {
-        event.preventDefault();
-        resetGame();
-        return;
-      }
-
-      if (key === 'escape') {
-        event.preventDefault();
-        setGameState(prev => ({
-          ...prev,
-          gameStatus: prev.gameStatus === 'playing' ? 'paused' : 'playing'
-        }));
-        return;
-      }
-
-      if (gameState.gameStatus !== 'playing') return;
-
-      let newDirection: Direction | null = null;
-
-      switch (key) {
-        case 'arrowup':
-        case 'w':
-          newDirection = 'UP';
-          break;
-        case 'arrowdown':
-        case 's':
-          newDirection = 'DOWN';
-          break;
-        case 'arrowleft':
-        case 'a':
-          newDirection = 'LEFT';
-          break;
-        case 'arrowright':
-        case 'd':
-          newDirection = 'RIGHT';
-          break;
-        case ' ':
-          event.preventDefault();
-          setGameState(prev => ({
-            ...prev,
-            gameStatus: prev.gameStatus === 'playing' ? 'paused' : 'playing'
-          }));
-          return;
-      }
-
-      if (newDirection) {
-        event.preventDefault();
-        setGameState(prev => ({
-          ...prev,
-          pacman: { ...prev.pacman, nextDirection: newDirection }
-        }));
-      }
-    },
-    [gameState.gameStatus, startGame, resetGame]
-  );
-
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
@@ -347,7 +387,7 @@ const PacManGame = () => {
           }
         };
       });
-    }, PACMAN_SPEED_MS); // Velocidade do Pac-Man
+    }, PACMAN_SPEED_MS);
 
     return () => {
       if (gameLoopRef.current) {
@@ -369,7 +409,7 @@ const PacManGame = () => {
 
     ghostLoopRef.current = setInterval(() => {
       moveGhosts();
-    }, GHOST_SPEED_MS); // Fantasmas mais lentos
+    }, GHOST_SPEED_MS);
 
     return () => {
       if (ghostLoopRef.current) {
@@ -406,7 +446,7 @@ const PacManGame = () => {
             : { ...ghost, mode: ghost.mode === 'scatter' ? 'chase' as const : 'scatter' as const }
         )
       }));
-    }, 6000); // Alternar a cada 6 segundos
+    }, 6000);
 
     return () => {
       if (modeIntervalRef.current) {
@@ -426,41 +466,6 @@ const PacManGame = () => {
       toast("Parabéns! Você venceu!");
     }
   }, [gameState.lives, gameState.dotsRemaining]);
-
-  const startGame = () => {
-    if (gameState.gameStatus === 'paused') {
-      setGameState(prev => ({ ...prev, gameStatus: 'playing' }));
-    } else {
-      setGameState(prev => ({ ...prev, gameStatus: 'playing' }));
-      toast("Jogo iniciado! Use as setas ou WASD para mover.");
-    }
-  };
-
-  const pauseGame = () => {
-    setGameState(prev => ({ ...prev, gameStatus: 'paused' }));
-  };
-
-  const resetGame = () => {
-    // Limpar todos os timeouts e intervalos
-    if (powerPelletTimeoutRef.current) {
-      clearTimeout(powerPelletTimeoutRef.current);
-      powerPelletTimeoutRef.current = null;
-    }
-    if (gameLoopRef.current) {
-      clearInterval(gameLoopRef.current);
-      gameLoopRef.current = null;
-    }
-    if (ghostLoopRef.current) {
-      clearInterval(ghostLoopRef.current);
-      ghostLoopRef.current = null;
-    }
-    if (modeIntervalRef.current) {
-      clearInterval(modeIntervalRef.current);
-      modeIntervalRef.current = null;
-    }
-    
-    setGameState(createInitialGameState());
-  };
 
   // Cleanup na desmontagem
   useEffect(() => {
