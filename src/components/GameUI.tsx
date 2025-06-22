@@ -6,12 +6,13 @@ import { Play, RotateCcw, Pause } from 'lucide-react';
 
 interface GameUIProps {
   gameState: GameState;
+  highScore: number;
   onStart: () => void;
   onPause?: () => void;
   onReset: () => void;
 }
 
-const GameUI = ({ gameState, onStart, onPause, onReset }: GameUIProps) => {
+const GameUI = ({ gameState, highScore, onStart, onPause, onReset }: GameUIProps) => {
   const { score, lives, level, gameStatus } = gameState;
 
   return (
@@ -28,13 +29,22 @@ const GameUI = ({ gameState, onStart, onPause, onReset }: GameUIProps) => {
 
       {/* Stats do jogo */}
       <Card className="bg-gray-900 border-blue-600 p-4 mb-4">
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-4 gap-4 text-center">
           <div>
             <div className="text-yellow-400 text-lg font-bold font-mono">
               SCORE
             </div>
             <div className="text-white text-2xl font-mono">
               {score.toLocaleString()}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-green-400 text-lg font-bold font-mono">
+              HIGH SCORE
+            </div>
+            <div className="text-white text-2xl font-mono">
+              {highScore.toLocaleString()}
             </div>
           </div>
           

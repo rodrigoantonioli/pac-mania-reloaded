@@ -11,6 +11,11 @@ const PacManGame = () => {
   const powerPelletTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const modeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [highScore, setHighScore] = useState<number>(() => {
+    const stored = localStorage.getItem('highScore');
+    return stored ? parseInt(stored, 10) : 0;
+  });
+
   const [gameState, setGameState] = useState<GameState>({
     score: 0,
     lives: 3,
@@ -36,6 +41,13 @@ const PacManGame = () => {
     const initialDots = INITIAL_MAZE.flat().filter(cell => cell === 1 || cell === 2).length;
     setGameState(prev => ({ ...prev, dotsRemaining: initialDots }));
   }, []);
+
+  useEffect(() => {
+    if (gameState.score > highScore) {
+      setHighScore(gameState.score);
+      localStorage.setItem('highScore', gameState.score.toString());
+    }
+  }, [gameState.score, highScore]);
 
   // Função para verificar movimento válido
   const isValidMove = useCallback((maze: number[][], position: Position, direction: Direction): boolean => {
@@ -480,8 +492,9 @@ const PacManGame = () => {
 
   return (
     <div className="flex flex-col items-center gap-4 p-4">
-      <GameUI 
+      <GameUI
         gameState={gameState}
+        highScore={highScore}
         onStart={startGame}
         onPause={pauseGame}
         onReset={resetGame}
