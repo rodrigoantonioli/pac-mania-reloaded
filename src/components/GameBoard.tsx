@@ -40,26 +40,29 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
       };
       
       const isScared = ghostAtPosition.mode === 'frightened';
-      const colorClass = isScared ? 'bg-blue-600 animate-pulse' : ghostColors[ghostAtPosition.color as keyof typeof ghostColors];
+      const baseColor = isScared ? 'bg-blue-600' : ghostColors[ghostAtPosition.color as keyof typeof ghostColors];
       
       return (
         <div className="w-full h-full flex items-center justify-center">
-          <div className={`w-6 h-6 ${colorClass} relative transition-colors duration-300 rounded-t-full`}>
-            {/* Corpo do fantasma - formato mais clássico */}
-            <div className="w-full h-4 bg-current rounded-t-full" />
-            <div className="w-full h-2 bg-current relative">
-              {/* Ondas na parte inferior - mais definidas */}
-              <div className="absolute bottom-0 w-full h-2 bg-current" 
+          <div className={`w-6 h-6 ${baseColor} relative transition-colors duration-300`}>
+            {/* Corpo principal do fantasma */}
+            <div className="w-full h-4 bg-current rounded-t-full"></div>
+            {/* Parte inferior com ondas */}
+            <div className="w-full h-2 bg-current relative overflow-hidden">
+              <div className="absolute bottom-0 w-full h-full bg-current"
                    style={{
-                     clipPath: 'polygon(0% 0%, 20% 100%, 40% 0%, 60% 100%, 80% 0%, 100% 100%, 100% 0%)'
-                   }} />
+                     clipPath: 'polygon(0% 0%, 16.66% 100%, 33.33% 0%, 50% 100%, 66.66% 0%, 83.33% 100%, 100% 0%, 100% 0%)'
+                   }}>
+              </div>
             </div>
-            {/* Olhos maiores e mais visíveis */}
-            <div className="absolute top-1 left-1 w-1.5 h-1.5 bg-white rounded-full" />
-            <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-white rounded-full" />
-            {/* Pupilas */}
-            <div className="absolute top-1.5 left-1.5 w-0.5 h-0.5 bg-black rounded-full" />
-            <div className="absolute top-1.5 right-1.5 w-0.5 h-0.5 bg-black rounded-full" />
+            {/* Olhos brancos */}
+            <div className="absolute top-1 left-1 w-1.5 h-1.5 bg-white rounded-full"></div>
+            <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-white rounded-full"></div>
+            {/* Pupilas pretas */}
+            <div className="absolute top-1.5 left-1.5 w-0.5 h-0.5 bg-black rounded-full"></div>
+            <div className="absolute top-1.5 right-1.5 w-0.5 h-0.5 bg-black rounded-full"></div>
+            {/* Animação de pulsação quando assustado */}
+            {isScared && <div className="absolute inset-0 bg-white opacity-20 rounded animate-pulse"></div>}
           </div>
         </div>
       );
@@ -91,20 +94,20 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
   return (
     <div className="relative bg-black border-4 border-blue-600 rounded-lg shadow-2xl overflow-hidden">
       <div 
-        className="grid gap-0"
+        className="grid gap-0 mx-auto"
         style={{
-          gridTemplateColumns: `repeat(${MAZE_WIDTH}, 1fr)`,
-          gridTemplateRows: `repeat(${MAZE_HEIGHT}, 1fr)`,
-          width: '540px',
-          height: '620px'
+          gridTemplateColumns: `repeat(${MAZE_WIDTH}, 20px)`,
+          gridTemplateRows: `repeat(${MAZE_HEIGHT}, 20px)`,
+          width: `${MAZE_WIDTH * 20}px`,
+          height: `${MAZE_HEIGHT * 20}px`
         }}
       >
-        {maze.map((row, y) =>
-          row.map((_, x) => (
+        {Array.from({ length: MAZE_HEIGHT }, (_, y) =>
+          Array.from({ length: MAZE_WIDTH }, (_, x) => (
             <div
               key={`${x}-${y}`}
-              className="relative border-[0.5px] border-gray-900"
-              style={{ width: '100%', height: '100%' }}
+              className="relative"
+              style={{ width: '20px', height: '20px' }}
             >
               {getCellContent(x, y)}
             </div>

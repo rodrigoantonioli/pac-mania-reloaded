@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import GameBoard from './GameBoard';
 import GameUI from './GameUI';
@@ -38,8 +37,8 @@ const PacManGame = () => {
     setGameState(prev => ({ ...prev, dotsRemaining: initialDots }));
   }, []);
 
-  // Função para verificar movimento válido (não usa closure)
-  const isValidMoveInMaze = (maze: number[][], position: Position, direction: Direction): boolean => {
+  // Função para verificar movimento válido
+  const isValidMove = useCallback((maze: number[][], position: Position, direction: Direction): boolean => {
     let newX = position.x;
     let newY = position.y;
 
@@ -65,9 +64,9 @@ const PacManGame = () => {
     
     // Verificar se não é parede (0)
     return maze[newY] && maze[newY][newX] !== 0;
-  };
+  }, []);
 
-  const moveEntityInMaze = (position: Position, direction: Direction): Position => {
+  const moveEntity = useCallback((position: Position, direction: Direction): Position => {
     let newX = position.x;
     let newY = position.y;
 
@@ -89,7 +88,7 @@ const PacManGame = () => {
     }
 
     return { x: newX, y: newY };
-  };
+  }, []);
 
   const handleCollisions = useCallback(() => {
     setGameState(prev => {
@@ -193,19 +192,18 @@ const PacManGame = () => {
     });
   }, []);
 
-  // Função simplificada para mover fantasmas
-  const moveGhosts = () => {
+  // Função para mover fantasmas
+  const moveGhosts = useCallback(() => {
     setGameState(prev => {
       const newGhosts = prev.ghosts.map(ghost => {
         const directions: Direction[] = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
         
         // Filtrar direções válidas
         const validDirections = directions.filter(dir => 
-          isValidMoveInMaze(prev.maze, ghost.position, dir)
+          isValidMove(prev.maze, ghost.position, dir)
         );
         
         if (validDirections.length === 0) {
-          console.log(`Ghost ${ghost.id} has no valid moves from position`, ghost.position);
           return ghost;
         }
         
@@ -240,16 +238,12 @@ const PacManGame = () => {
           } else {
             chosenDirection = directionsToUse[Math.floor(Math.random() * directionsToUse.length)];
           }
-        } else if (ghost.mode === 'frightened') {
-          // Movimento mais aleatório quando assustado
-          chosenDirection = directionsToUse[Math.floor(Math.random() * directionsToUse.length)];
         } else {
-          // Modo scatter - movimento mais aleatório
+          // Modo scatter ou frightened - movimento mais aleatório
           chosenDirection = directionsToUse[Math.floor(Math.random() * directionsToUse.length)];
         }
         
-        const newPosition = moveEntityInMaze(ghost.position, chosenDirection);
-        console.log(`Ghost ${ghost.id} moving from`, ghost.position, 'to', newPosition, 'direction:', chosenDirection);
+        const newPosition = moveEntity(ghost.position, chosenDirection);
         
         return { 
           ...ghost, 
@@ -260,7 +254,7 @@ const PacManGame = () => {
       
       return { ...prev, ghosts: newGhosts };
     });
-  };
+  }, [isValidMove, moveEntity]);
 
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     if (gameState.gameStatus !== 'playing') return;
@@ -320,16 +314,16 @@ const PacManGame = () => {
     gameLoopRef.current = setInterval(() => {
       setGameState(prev => {
         // Verificar se pode mudar de direção
-        const canChangeDirection = isValidMoveInMaze(prev.maze, prev.pacman.position, prev.pacman.nextDirection);
+        const canChangeDirection = isValidMove(prev.maze, prev.pacman.position, prev.pacman.nextDirection);
         const direction = canChangeDirection ? prev.pacman.nextDirection : prev.pacman.direction;
         
         // Verificar se pode mover na direção atual
-        if (!isValidMoveInMaze(prev.maze, prev.pacman.position, direction)) {
+        if (!isValidMove(prev.maze, prev.pacman.position, direction)) {
           return prev; // Não pode mover, fica parado
         }
         
         // Mover Pac-Man
-        const newPosition = moveEntityInMaze(prev.pacman.position, direction);
+        const newPosition = moveEntity(prev.pacman.position, direction);
         
         return {
           ...prev,
@@ -340,7 +334,7 @@ const PacManGame = () => {
           }
         };
       });
-    }, 120); // Pac-Man mais rápido que os fantasmas
+    }, 150); // Velocidade do Pac-Man
 
     return () => {
       if (gameLoopRef.current) {
@@ -348,9 +342,9 @@ const PacManGame = () => {
         gameLoopRef.current = null;
       }
     };
-  }, [gameState.gameStatus]);
+  }, [gameState.gameStatus, isValidMove, moveEntity]);
 
-  // Loop dos fantasmas (separado e mais lento)
+  // Loop dos fantasmas
   useEffect(() => {
     if (gameState.gameStatus !== 'playing') {
       if (ghostLoopRef.current) {
@@ -362,7 +356,7 @@ const PacManGame = () => {
 
     ghostLoopRef.current = setInterval(() => {
       moveGhosts();
-    }, 200); // Fantasmas mais lentos
+    }, 250); // Fantasmas mais lentos
 
     return () => {
       if (ghostLoopRef.current) {
@@ -370,7 +364,7 @@ const PacManGame = () => {
         ghostLoopRef.current = null;
       }
     };
-  }, [gameState.gameStatus]);
+  }, [gameState.gameStatus, moveGhosts]);
 
   // Verificar colisões e comer dots após movimento
   useEffect(() => {
