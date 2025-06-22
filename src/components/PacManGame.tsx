@@ -6,10 +6,13 @@ import { MAZE_WIDTH, MAZE_HEIGHT, INITIAL_MAZE } from '@/utils/mazeData';
 import { toast } from 'sonner';
 
 const PacManGame = () => {
-  const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
-  const ghostLoopRef = useRef<NodeJS.Timeout | null>(null);
-  const powerPelletTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const modeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Generic timer types make the code compatible with both browser and Node
+  const gameLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const ghostLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const powerPelletTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const modeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [gameState, setGameState] = useState<GameState>({
     score: 0,
@@ -193,6 +196,13 @@ const PacManGame = () => {
   }, []);
 
   // Função para mover fantasmas
+  const OPPOSITE: Record<Direction, Direction> = {
+    UP: 'DOWN',
+    DOWN: 'UP',
+    LEFT: 'RIGHT',
+    RIGHT: 'LEFT'
+  };
+
   const moveGhosts = useCallback(() => {
     setGameState(prev => {
       const newGhosts = prev.ghosts.map(ghost => {
@@ -208,12 +218,7 @@ const PacManGame = () => {
         }
         
         // Evitar voltar (exceto se for a única opção)
-        const oppositeDirection = {
-          'UP': 'DOWN' as const,
-          'DOWN': 'UP' as const,
-          'LEFT': 'RIGHT' as const,
-          'RIGHT': 'LEFT' as const
-        }[ghost.direction];
+        const oppositeDirection = OPPOSITE[ghost.direction];
         
         const preferredDirections = validDirections.filter(dir => dir !== oppositeDirection);
         const directionsToUse = preferredDirections.length > 0 ? preferredDirections : validDirections;
@@ -372,7 +377,7 @@ const PacManGame = () => {
       eatDot();
       handleCollisions();
     }
-  }, [gameState.pacman.position, eatDot, handleCollisions]);
+  }, [gameState.pacman.position, gameState.ghosts, eatDot, handleCollisions]);
 
   // Alternar modo dos fantasmas periodicamente
   useEffect(() => {
