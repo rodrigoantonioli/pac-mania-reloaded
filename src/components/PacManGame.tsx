@@ -1,8 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import GameBoard from './GameBoard';
 import GameUI from './GameUI';
-import { GameState, Position, Direction, Ghost } from '@/types/game';
-import { MAZE_WIDTH, MAZE_HEIGHT, INITIAL_MAZE } from '@/utils/mazeData';
+import { GameState, Position, Direction } from '@/types/game';
+import { MAZE_WIDTH, MAZE_HEIGHT } from '@/utils/mazeData';
+import {
+  createInitialGameState,
+  PACMAN_SPEED_MS,
+  GHOST_SPEED_MS,
+  POWER_PELLET_DURATION_MS
+} from '@/utils/gameConstants';
 import { toast } from 'sonner';
 
 const PacManGame = () => {
@@ -14,32 +20,7 @@ const PacManGame = () => {
   );
   const modeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const [gameState, setGameState] = useState<GameState>({
-    score: 0,
-    lives: 3,
-    level: 1,
-    gameStatus: 'ready',
-    pacman: {
-      position: { x: 13, y: 26 },
-      direction: 'RIGHT',
-      nextDirection: 'RIGHT'
-    },
-    ghosts: [
-      { id: 1, position: { x: 13, y: 11 }, direction: 'UP', color: 'red', mode: 'scatter' },
-      { id: 2, position: { x: 12, y: 13 }, direction: 'UP', color: 'pink', mode: 'scatter' },
-      { id: 3, position: { x: 13, y: 13 }, direction: 'UP', color: 'cyan', mode: 'scatter' },
-      { id: 4, position: { x: 14, y: 13 }, direction: 'UP', color: 'orange', mode: 'scatter' }
-    ],
-    maze: INITIAL_MAZE.map(row => [...row]),
-    dotsRemaining: 0
-  });
-
-  // Contar dots iniciais
-  useEffect(() => {
-    const initialDots = INITIAL_MAZE.flat().filter(cell => cell === 1 || cell === 2).length;
-    setGameState(prev => ({ ...prev, dotsRemaining: initialDots }));
-  }, []);
-
+  const [gameState, setGameState] = useState<GameState>(createInitialGameState());
   // Função para verificar movimento válido
   const isValidMove = useCallback((maze: number[][], position: Position, direction: Direction): boolean => {
     let newX = position.x;
@@ -172,13 +153,13 @@ const PacManGame = () => {
         powerPelletTimeoutRef.current = setTimeout(() => {
           setGameState(current => ({
             ...current,
-            ghosts: current.ghosts.map(ghost => 
-              ghost.mode === 'frightened' 
+            ghosts: current.ghosts.map(ghost =>
+              ghost.mode === 'frightened'
                 ? { ...ghost, mode: 'scatter' as const }
                 : ghost
             )
           }));
-        }, 8000);
+        }, POWER_PELLET_DURATION_MS);
         
         toast("Power Pellet! Fantasmas estão assustados!");
         
@@ -339,7 +320,7 @@ const PacManGame = () => {
           }
         };
       });
-    }, 150); // Velocidade do Pac-Man
+    }, PACMAN_SPEED_MS); // Velocidade do Pac-Man
 
     return () => {
       if (gameLoopRef.current) {
@@ -361,7 +342,7 @@ const PacManGame = () => {
 
     ghostLoopRef.current = setInterval(() => {
       moveGhosts();
-    }, 250); // Fantasmas mais lentos
+    }, GHOST_SPEED_MS); // Fantasmas mais lentos
 
     return () => {
       if (ghostLoopRef.current) {
@@ -451,26 +432,7 @@ const PacManGame = () => {
       modeIntervalRef.current = null;
     }
     
-    const initialDots = INITIAL_MAZE.flat().filter(cell => cell === 1 || cell === 2).length;
-    setGameState({
-      score: 0,
-      lives: 3,
-      level: 1,
-      gameStatus: 'ready',
-      pacman: {
-        position: { x: 13, y: 26 },
-        direction: 'RIGHT',
-        nextDirection: 'RIGHT'
-      },
-      ghosts: [
-        { id: 1, position: { x: 13, y: 11 }, direction: 'UP', color: 'red', mode: 'scatter' },
-        { id: 2, position: { x: 12, y: 13 }, direction: 'UP', color: 'pink', mode: 'scatter' },
-        { id: 3, position: { x: 13, y: 13 }, direction: 'UP', color: 'cyan', mode: 'scatter' },
-        { id: 4, position: { x: 14, y: 13 }, direction: 'UP', color: 'orange', mode: 'scatter' }
-      ],
-      maze: INITIAL_MAZE.map(row => [...row]),
-      dotsRemaining: initialDots
-    });
+    setGameState(createInitialGameState());
   };
 
   // Cleanup na desmontagem
