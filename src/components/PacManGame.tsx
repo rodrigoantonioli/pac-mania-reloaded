@@ -10,6 +10,7 @@ const PacManGame = () => {
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
   const ghostLoopRef = useRef<NodeJS.Timeout | null>(null);
   const powerPelletTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const modeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [gameState, setGameState] = useState<GameState>({
     score: 0,
@@ -37,7 +38,8 @@ const PacManGame = () => {
     setGameState(prev => ({ ...prev, dotsRemaining: initialDots }));
   }, []);
 
-  const isValidMove = (position: Position, direction: Direction): boolean => {
+  // Função para verificar movimento válido (não usa closure)
+  const isValidMoveInMaze = (maze: number[][], position: Position, direction: Direction): boolean => {
     let newX = position.x;
     let newY = position.y;
 
@@ -61,15 +63,11 @@ const PacManGame = () => {
     // Verificar limites do maze
     if (newY < 0 || newY >= MAZE_HEIGHT) return false;
     
-    // Verificar se não é parede
-    return gameState.maze[newY] && gameState.maze[newY][newX] !== 0;
+    // Verificar se não é parede (0)
+    return maze[newY] && maze[newY][newX] !== 0;
   };
 
-  const moveEntity = (position: Position, direction: Direction): Position => {
-    if (!isValidMove(position, direction)) {
-      return position;
-    }
-
+  const moveEntityInMaze = (position: Position, direction: Direction): Position => {
     let newX = position.x;
     let newY = position.y;
 
@@ -112,7 +110,7 @@ const PacManGame = () => {
             score: prev.score + 200,
             ghosts: prev.ghosts.map(g => 
               g.id === collidedGhost.id 
-                ? { ...g, position: { x: 13, y: 13 }, mode: 'scatter' }
+                ? { ...g, position: { x: 13, y: 13 }, mode: 'scatter' as const }
                 : g
             )
           };
@@ -125,14 +123,14 @@ const PacManGame = () => {
             pacman: { 
               ...prev.pacman, 
               position: { x: 13, y: 26 },
-              direction: 'RIGHT',
-              nextDirection: 'RIGHT'
+              direction: 'RIGHT' as const,
+              nextDirection: 'RIGHT' as const
             },
             ghosts: [
-              { id: 1, position: { x: 13, y: 11 }, direction: 'UP', color: 'red', mode: 'scatter' },
-              { id: 2, position: { x: 12, y: 13 }, direction: 'UP', color: 'pink', mode: 'scatter' },
-              { id: 3, position: { x: 13, y: 13 }, direction: 'UP', color: 'cyan', mode: 'scatter' },
-              { id: 4, position: { x: 14, y: 13 }, direction: 'UP', color: 'orange', mode: 'scatter' }
+              { id: 1, position: { x: 13, y: 11 }, direction: 'UP' as const, color: 'red', mode: 'scatter' as const },
+              { id: 2, position: { x: 12, y: 13 }, direction: 'UP' as const, color: 'pink', mode: 'scatter' as const },
+              { id: 3, position: { x: 13, y: 13 }, direction: 'UP' as const, color: 'cyan', mode: 'scatter' as const },
+              { id: 4, position: { x: 14, y: 13 }, direction: 'UP' as const, color: 'orange', mode: 'scatter' as const }
             ]
           };
         }
@@ -168,13 +166,17 @@ const PacManGame = () => {
           clearTimeout(powerPelletTimeoutRef.current);
         }
         
-        // Assustar fantasmas por 10 segundos
+        // Assustar fantasmas por 8 segundos
         powerPelletTimeoutRef.current = setTimeout(() => {
           setGameState(current => ({
             ...current,
-            ghosts: current.ghosts.map(ghost => ({ ...ghost, mode: 'scatter' }))
+            ghosts: current.ghosts.map(ghost => 
+              ghost.mode === 'frightened' 
+                ? { ...ghost, mode: 'scatter' as const }
+                : ghost
+            )
           }));
-        }, 10000);
+        }, 8000);
         
         toast("Power Pellet! Fantasmas estão assustados!");
         
@@ -183,7 +185,7 @@ const PacManGame = () => {
           maze: newMaze,
           score: prev.score + 50,
           dotsRemaining: prev.dotsRemaining - 1,
-          ghosts: prev.ghosts.map(ghost => ({ ...ghost, mode: 'frightened' }))
+          ghosts: prev.ghosts.map(ghost => ({ ...ghost, mode: 'frightened' as const }))
         };
       }
       
@@ -191,64 +193,74 @@ const PacManGame = () => {
     });
   }, []);
 
-  const moveGhosts = useCallback(() => {
+  // Função simplificada para mover fantasmas
+  const moveGhosts = () => {
     setGameState(prev => {
       const newGhosts = prev.ghosts.map(ghost => {
         const directions: Direction[] = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
         
-        // Filtrar direções válidas (não pode ir para trás)
-        const oppositeDirection = {
-          'UP': 'DOWN',
-          'DOWN': 'UP',
-          'LEFT': 'RIGHT',
-          'RIGHT': 'LEFT'
-        }[ghost.direction] as Direction;
-        
-        const validDirections = directions.filter(dir => {
-          if (dir === oppositeDirection) return false; // Não pode voltar
-          return isValidMove(ghost.position, dir);
-        });
+        // Filtrar direções válidas
+        const validDirections = directions.filter(dir => 
+          isValidMoveInMaze(prev.maze, ghost.position, dir)
+        );
         
         if (validDirections.length === 0) {
-          // Se não há direções válidas, pode voltar
-          const backDirection = oppositeDirection;
-          if (isValidMove(ghost.position, backDirection)) {
-            const newPosition = moveEntity(ghost.position, backDirection);
-            return { ...ghost, position: newPosition, direction: backDirection };
-          }
+          console.log(`Ghost ${ghost.id} has no valid moves from position`, ghost.position);
           return ghost;
         }
         
-        // IA dos fantasmas: seguir Pac-Man se no modo chase
+        // Evitar voltar (exceto se for a única opção)
+        const oppositeDirection = {
+          'UP': 'DOWN' as const,
+          'DOWN': 'UP' as const,
+          'LEFT': 'RIGHT' as const,
+          'RIGHT': 'LEFT' as const
+        }[ghost.direction];
+        
+        const preferredDirections = validDirections.filter(dir => dir !== oppositeDirection);
+        const directionsToUse = preferredDirections.length > 0 ? preferredDirections : validDirections;
+        
         let chosenDirection: Direction;
         
-        if (ghost.mode === 'chase' && Math.random() > 0.3) {
-          // 70% chance de seguir Pac-Man
+        // IA dos fantasmas
+        if (ghost.mode === 'chase' && Math.random() > 0.4) {
+          // 60% chance de seguir Pac-Man no modo chase
           const dx = prev.pacman.position.x - ghost.position.x;
           const dy = prev.pacman.position.y - ghost.position.y;
           
+          let targetDirection: Direction;
           if (Math.abs(dx) > Math.abs(dy)) {
-            chosenDirection = dx > 0 ? 'RIGHT' : 'LEFT';
+            targetDirection = dx > 0 ? 'RIGHT' : 'LEFT';
           } else {
-            chosenDirection = dy > 0 ? 'DOWN' : 'UP';
+            targetDirection = dy > 0 ? 'DOWN' : 'UP';
           }
           
-          // Se a direção escolhida não é válida, escolher aleatória
-          if (!validDirections.includes(chosenDirection)) {
-            chosenDirection = validDirections[Math.floor(Math.random() * validDirections.length)];
+          if (directionsToUse.includes(targetDirection)) {
+            chosenDirection = targetDirection;
+          } else {
+            chosenDirection = directionsToUse[Math.floor(Math.random() * directionsToUse.length)];
           }
+        } else if (ghost.mode === 'frightened') {
+          // Movimento mais aleatório quando assustado
+          chosenDirection = directionsToUse[Math.floor(Math.random() * directionsToUse.length)];
         } else {
-          // Movimento aleatório
-          chosenDirection = validDirections[Math.floor(Math.random() * validDirections.length)];
+          // Modo scatter - movimento mais aleatório
+          chosenDirection = directionsToUse[Math.floor(Math.random() * directionsToUse.length)];
         }
         
-        const newPosition = moveEntity(ghost.position, chosenDirection);
-        return { ...ghost, position: newPosition, direction: chosenDirection };
+        const newPosition = moveEntityInMaze(ghost.position, chosenDirection);
+        console.log(`Ghost ${ghost.id} moving from`, ghost.position, 'to', newPosition, 'direction:', chosenDirection);
+        
+        return { 
+          ...ghost, 
+          position: newPosition, 
+          direction: chosenDirection 
+        };
       });
       
       return { ...prev, ghosts: newGhosts };
     });
-  }, [isValidMove, moveEntity]);
+  };
 
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     if (gameState.gameStatus !== 'playing') return;
@@ -295,7 +307,7 @@ const PacManGame = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
 
-  // Game loop principal
+  // Game loop principal - Pac-Man
   useEffect(() => {
     if (gameState.gameStatus !== 'playing') {
       if (gameLoopRef.current) {
@@ -308,11 +320,16 @@ const PacManGame = () => {
     gameLoopRef.current = setInterval(() => {
       setGameState(prev => {
         // Verificar se pode mudar de direção
-        const canChangeDirection = isValidMove(prev.pacman.position, prev.pacman.nextDirection);
+        const canChangeDirection = isValidMoveInMaze(prev.maze, prev.pacman.position, prev.pacman.nextDirection);
         const direction = canChangeDirection ? prev.pacman.nextDirection : prev.pacman.direction;
         
+        // Verificar se pode mover na direção atual
+        if (!isValidMoveInMaze(prev.maze, prev.pacman.position, direction)) {
+          return prev; // Não pode mover, fica parado
+        }
+        
         // Mover Pac-Man
-        const newPosition = moveEntity(prev.pacman.position, direction);
+        const newPosition = moveEntityInMaze(prev.pacman.position, direction);
         
         return {
           ...prev,
@@ -323,7 +340,7 @@ const PacManGame = () => {
           }
         };
       });
-    }, 150);
+    }, 120); // Pac-Man mais rápido que os fantasmas
 
     return () => {
       if (gameLoopRef.current) {
@@ -331,9 +348,9 @@ const PacManGame = () => {
         gameLoopRef.current = null;
       }
     };
-  }, [gameState.gameStatus, isValidMove, moveEntity]);
+  }, [gameState.gameStatus]);
 
-  // Loop dos fantasmas
+  // Loop dos fantasmas (separado e mais lento)
   useEffect(() => {
     if (gameState.gameStatus !== 'playing') {
       if (ghostLoopRef.current) {
@@ -345,7 +362,7 @@ const PacManGame = () => {
 
     ghostLoopRef.current = setInterval(() => {
       moveGhosts();
-    }, 300);
+    }, 200); // Fantasmas mais lentos
 
     return () => {
       if (ghostLoopRef.current) {
@@ -353,7 +370,7 @@ const PacManGame = () => {
         ghostLoopRef.current = null;
       }
     };
-  }, [gameState.gameStatus, moveGhosts]);
+  }, [gameState.gameStatus]);
 
   // Verificar colisões e comer dots após movimento
   useEffect(() => {
@@ -365,20 +382,31 @@ const PacManGame = () => {
 
   // Alternar modo dos fantasmas periodicamente
   useEffect(() => {
-    if (gameState.gameStatus !== 'playing') return;
+    if (gameState.gameStatus !== 'playing') {
+      if (modeIntervalRef.current) {
+        clearInterval(modeIntervalRef.current);
+        modeIntervalRef.current = null;
+      }
+      return;
+    }
 
-    const modeInterval = setInterval(() => {
+    modeIntervalRef.current = setInterval(() => {
       setGameState(prev => ({
         ...prev,
         ghosts: prev.ghosts.map(ghost => 
           ghost.mode === 'frightened' 
             ? ghost 
-            : { ...ghost, mode: ghost.mode === 'scatter' ? 'chase' : 'scatter' }
+            : { ...ghost, mode: ghost.mode === 'scatter' ? 'chase' as const : 'scatter' as const }
         )
       }));
-    }, 7000); // Alternar a cada 7 segundos
+    }, 6000); // Alternar a cada 6 segundos
 
-    return () => clearInterval(modeInterval);
+    return () => {
+      if (modeIntervalRef.current) {
+        clearInterval(modeIntervalRef.current);
+        modeIntervalRef.current = null;
+      }
+    };
   }, [gameState.gameStatus]);
 
   // Verificar condições de vitória/derrota
@@ -406,10 +434,22 @@ const PacManGame = () => {
   };
 
   const resetGame = () => {
-    // Limpar timeouts
+    // Limpar todos os timeouts e intervalos
     if (powerPelletTimeoutRef.current) {
       clearTimeout(powerPelletTimeoutRef.current);
       powerPelletTimeoutRef.current = null;
+    }
+    if (gameLoopRef.current) {
+      clearInterval(gameLoopRef.current);
+      gameLoopRef.current = null;
+    }
+    if (ghostLoopRef.current) {
+      clearInterval(ghostLoopRef.current);
+      ghostLoopRef.current = null;
+    }
+    if (modeIntervalRef.current) {
+      clearInterval(modeIntervalRef.current);
+      modeIntervalRef.current = null;
     }
     
     const initialDots = INITIAL_MAZE.flat().filter(cell => cell === 1 || cell === 2).length;
@@ -439,6 +479,7 @@ const PacManGame = () => {
     return () => {
       if (gameLoopRef.current) clearInterval(gameLoopRef.current);
       if (ghostLoopRef.current) clearInterval(ghostLoopRef.current);
+      if (modeIntervalRef.current) clearInterval(modeIntervalRef.current);
       if (powerPelletTimeoutRef.current) clearTimeout(powerPelletTimeoutRef.current);
     };
   }, []);
