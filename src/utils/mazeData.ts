@@ -2,6 +2,9 @@
 export const MAZE_WIDTH = 27;
 export const MAZE_HEIGHT = 31;
 
+// Tamanho em pixels de cada célula do tabuleiro
+export const CELL_SIZE = 20;
+
 // 0 = parede, 1 = dot, 2 = power pellet, 3 = espaço vazio
 export const INITIAL_MAZE = [
   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],

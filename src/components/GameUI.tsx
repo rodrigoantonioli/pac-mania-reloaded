@@ -22,7 +22,7 @@ const GameUI = ({ gameState, onStart, onPause, onReset }: GameUIProps) => {
           PAC-MAN
         </h1>
         <div className="text-cyan-400 text-sm font-mono">
-          Use SETAS ou WASD para mover • ESPAÇO para pausar
+          Use SETAS ou WASD para mover • ENTER para iniciar • ESC para pausar • R para reiniciar
         </div>
       </div>
 

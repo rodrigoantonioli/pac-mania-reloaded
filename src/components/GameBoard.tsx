@@ -1,6 +1,6 @@
 
 import { GameState } from '@/types/game';
-import { MAZE_WIDTH, MAZE_HEIGHT } from '@/utils/mazeData';
+import { MAZE_WIDTH, MAZE_HEIGHT, CELL_SIZE } from '@/utils/mazeData';
 
 interface GameBoardProps {
   gameState: GameState;
@@ -96,10 +96,10 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
       <div 
         className="grid gap-0 mx-auto"
         style={{
-          gridTemplateColumns: `repeat(${MAZE_WIDTH}, 20px)`,
-          gridTemplateRows: `repeat(${MAZE_HEIGHT}, 20px)`,
-          width: `${MAZE_WIDTH * 20}px`,
-          height: `${MAZE_HEIGHT * 20}px`
+          gridTemplateColumns: `repeat(${MAZE_WIDTH}, ${CELL_SIZE}px)`,
+          gridTemplateRows: `repeat(${MAZE_HEIGHT}, ${CELL_SIZE}px)`,
+          width: `${MAZE_WIDTH * CELL_SIZE}px`,
+          height: `${MAZE_HEIGHT * CELL_SIZE}px`
         }}
       >
         {Array.from({ length: MAZE_HEIGHT }, (_, y) =>
@@ -107,7 +107,7 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
             <div
               key={`${x}-${y}`}
               className="relative"
-              style={{ width: '20px', height: '20px' }}
+              style={{ width: `${CELL_SIZE}px`, height: `${CELL_SIZE}px` }}
             >
               {getCellContent(x, y)}
             </div>
