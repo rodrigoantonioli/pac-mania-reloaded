@@ -1,8 +1,8 @@
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { GameState } from '@/types/game';
 import { Play, RotateCcw, Pause } from 'lucide-react';
+import GameStats from './GameStats';
 
 interface GameUIProps {
   gameState: GameState;
@@ -12,65 +12,31 @@ interface GameUIProps {
 }
 
 const GameUI = ({ gameState, onStart, onPause, onReset }: GameUIProps) => {
-  const { score, lives, level, gameStatus } = gameState;
+  const { score, lives, gameStatus } = gameState;
 
   return (
     <div className="w-full max-w-2xl">
       {/* Header com título */}
       <div className="text-center mb-6">
-        <h1 className="text-6xl font-bold text-yellow-400 tracking-wider mb-2 font-mono">
+        <h1 className="text-6xl font-bold text-yellow-400 tracking-wider mb-2 font-mono drop-shadow-lg">
           PAC-MAN
         </h1>
-        <div className="text-cyan-400 text-sm font-mono">
+        <div className="text-cyan-400 text-sm font-mono bg-black bg-opacity-50 px-4 py-2 rounded-lg">
           Use SETAS ou WASD para mover • ENTER para iniciar • ESC para pausar • R para reiniciar
         </div>
       </div>
 
-      {/* Stats do jogo */}
-      <Card className="bg-gray-900 border-blue-600 p-4 mb-4">
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <div className="text-yellow-400 text-lg font-bold font-mono">
-              SCORE
-            </div>
-            <div className="text-white text-2xl font-mono">
-              {score.toLocaleString()}
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-red-400 text-lg font-bold font-mono">
-              LIVES
-            </div>
-            <div className="flex justify-center gap-1 mt-1">
-              {[...Array(3)].map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-6 h-6 rounded-full ${
-                    i < lives ? 'bg-yellow-400' : 'bg-gray-700'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-cyan-400 text-lg font-bold font-mono">
-              LEVEL
-            </div>
-            <div className="text-white text-2xl font-mono">
-              {level}
-            </div>
-          </div>
-        </div>
-      </Card>
+      {/* Stats do jogo - usando novo componente */}
+      <div className="mb-4">
+        <GameStats gameState={gameState} />
+      </div>
 
       {/* Controles */}
-      <div className="flex justify-center gap-4">
+      <div className="flex justify-center gap-4 mb-4">
         {gameStatus === 'ready' && (
           <Button
             onClick={onStart}
-            className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 text-lg"
+            className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 text-lg transition-all duration-200 transform hover:scale-105"
           >
             <Play className="w-5 h-5 mr-2" />
             INICIAR JOGO
@@ -80,7 +46,7 @@ const GameUI = ({ gameState, onStart, onPause, onReset }: GameUIProps) => {
         {gameStatus === 'playing' && (
           <Button
             onClick={onPause}
-            className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 text-lg"
+            className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 text-lg transition-all duration-200 transform hover:scale-105"
           >
             <Pause className="w-5 h-5 mr-2" />
             PAUSAR
@@ -90,7 +56,7 @@ const GameUI = ({ gameState, onStart, onPause, onReset }: GameUIProps) => {
         {gameStatus === 'paused' && (
           <Button
             onClick={onStart}
-            className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 text-lg"
+            className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 text-lg transition-all duration-200 transform hover:scale-105"
           >
             <Play className="w-5 h-5 mr-2" />
             CONTINUAR
@@ -99,7 +65,7 @@ const GameUI = ({ gameState, onStart, onPause, onReset }: GameUIProps) => {
         
         <Button
           onClick={onReset}
-          className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 text-lg"
+          className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 text-lg transition-all duration-200 transform hover:scale-105"
         >
           <RotateCcw className="w-5 h-5 mr-2" />
           REINICIAR
@@ -108,12 +74,15 @@ const GameUI = ({ gameState, onStart, onPause, onReset }: GameUIProps) => {
 
       {/* Status do jogo */}
       {gameStatus === 'gameOver' && (
-        <div className="text-center mt-4 p-4 bg-red-900 border border-red-600 rounded-lg">
-          <div className="text-red-400 text-xl font-bold font-mono mb-2">
-            {lives <= 0 ? 'GAME OVER!' : 'PARABÉNS! VOCÊ VENCEU!'}
+        <div className="text-center p-6 bg-gradient-to-r from-red-900 to-red-800 border border-red-600 rounded-lg shadow-lg">
+          <div className="text-red-400 text-2xl font-bold font-mono mb-3 animate-pulse">
+            {lives <= 0 ? '💀 GAME OVER! 💀' : '🎉 PARABÉNS! VOCÊ VENCEU! 🎉'}
           </div>
-          <div className="text-white font-mono">
-            Pontuação Final: {score.toLocaleString()}
+          <div className="text-white font-mono text-lg">
+            Pontuação Final: <span className="text-yellow-400 font-bold">{score.toLocaleString()}</span>
+          </div>
+          <div className="text-gray-300 font-mono text-sm mt-2">
+            Pressione R para jogar novamente
           </div>
         </div>
       )}
