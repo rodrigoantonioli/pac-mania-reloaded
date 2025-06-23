@@ -1,3 +1,4 @@
+
 import { GameState } from '@/types/game';
 import { MAZE_WIDTH, MAZE_HEIGHT, CELL_SIZE } from '@/utils/mazeData';
 
@@ -8,30 +9,29 @@ interface GameBoardProps {
 const GameBoard = ({ gameState }: GameBoardProps) => {
   const { maze, pacman, ghosts } = gameState;
 
-  // Calcular tamanho responsivo do cell
+  // Calcular tamanho responsivo do cell baseado na altura disponível da viewport
   const getResponsiveCellSize = () => {
     if (typeof window !== 'undefined') {
       const screenWidth = window.innerWidth;
       const screenHeight = window.innerHeight;
       
-      // Para mobile (telas menores que 640px)
+      // Reservar espaço para UI (aproximadamente 200px no mobile, 250px no desktop)
+      const reservedHeight = screenWidth < 640 ? 180 : 220;
+      const availableHeight = screenHeight - reservedHeight;
+      const availableWidth = screenWidth - 32; // padding lateral
+      
+      const cellByWidth = Math.floor(availableWidth / MAZE_WIDTH);
+      const cellByHeight = Math.floor(availableHeight / MAZE_HEIGHT);
+      
+      // Usar o menor para garantir que caiba na tela
+      const optimalSize = Math.min(cellByWidth, cellByHeight);
+      
+      // Limites mínimos e máximos
       if (screenWidth < 640) {
-        const maxBoardWidth = screenWidth - 32; // padding lateral
-        const maxBoardHeight = screenHeight * 0.5; // 50% da altura da tela
-        
-        const cellByWidth = Math.floor(maxBoardWidth / MAZE_WIDTH);
-        const cellByHeight = Math.floor(maxBoardHeight / MAZE_HEIGHT);
-        
-        return Math.min(cellByWidth, cellByHeight, 16); // máximo 16px em mobile
+        return Math.max(Math.min(optimalSize, 14), 8); // Entre 8px e 14px no mobile
+      } else {
+        return Math.max(Math.min(optimalSize, CELL_SIZE), 12); // Entre 12px e 20px no desktop
       }
-      
-      // Para tablet
-      if (screenWidth < 1024) {
-        return Math.min(CELL_SIZE, 20);
-      }
-      
-      // Para desktop
-      return CELL_SIZE;
     }
     
     return CELL_SIZE;
@@ -147,8 +147,8 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
   };
 
   return (
-    <div className="flex justify-center items-center w-full">
-      <div className="relative bg-black border-2 sm:border-4 border-blue-600 rounded-lg shadow-2xl overflow-hidden">
+    <div className="flex justify-center items-center w-full h-full">
+      <div className="relative bg-black border border-blue-600 rounded-lg shadow-2xl overflow-hidden">
         <div 
           className="grid gap-0 mx-auto"
           style={{
@@ -176,17 +176,17 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
           <div className="absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center">
             <div className="text-center">
               {gameState.gameStatus === 'ready' && (
-                <div className="text-yellow-400 text-2xl sm:text-4xl font-bold animate-bounce font-mono">
+                <div className="text-yellow-400 text-xl sm:text-3xl font-bold animate-bounce font-mono">
                   READY?
                 </div>
               )}
               {gameState.gameStatus === 'paused' && (
-                <div className="text-yellow-400 text-2xl sm:text-4xl font-bold font-mono">
+                <div className="text-yellow-400 text-xl sm:text-3xl font-bold font-mono">
                   PAUSED
                 </div>
               )}
               {gameState.gameStatus === 'gameOver' && (
-                <div className="text-red-400 text-2xl sm:text-4xl font-bold animate-pulse font-mono">
+                <div className="text-red-400 text-xl sm:text-3xl font-bold animate-pulse font-mono">
                   GAME OVER
                 </div>
               )}

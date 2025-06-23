@@ -9,6 +9,7 @@ import {
   GHOST_SPEED_MS,
   POWER_PELLET_DURATION_MS
 } from '@/utils/gameConstants';
+import { useTouchControls } from '@/hooks/useTouchControls';
 import { toast } from 'sonner';
 
 const PacManGame = () => {
@@ -21,6 +22,22 @@ const PacManGame = () => {
   const modeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [gameState, setGameState] = useState<GameState>(createInitialGameState());
+
+  // Função para mudança de direção (usada tanto por teclado quanto por touch)
+  const handleDirectionChange = useCallback((newDirection: Direction) => {
+    if (gameState.gameStatus === 'playing') {
+      setGameState(prev => ({
+        ...prev,
+        pacman: { ...prev.pacman, nextDirection: newDirection }
+      }));
+    }
+  }, [gameState.gameStatus]);
+
+  // Hook para controles touch
+  useTouchControls({
+    onDirectionChange: handleDirectionChange,
+    isGamePlaying: gameState.gameStatus === 'playing'
+  });
 
   // Funções básicas de movimento e validação
   const isValidMove = useCallback((maze: number[][], position: Position, direction: Direction): boolean => {
@@ -81,7 +98,7 @@ const PacManGame = () => {
       if (prev.gameStatus === 'paused') {
         return { ...prev, gameStatus: 'playing' };
       } else {
-        toast("Jogo iniciado! Use as setas ou WASD para mover.");
+        toast("Jogo iniciado! Use as setas, WASD ou arraste o dedo para mover.");
         return { ...prev, gameStatus: 'playing' };
       }
     });
@@ -172,13 +189,10 @@ const PacManGame = () => {
 
       if (newDirection) {
         event.preventDefault();
-        setGameState(prev => ({
-          ...prev,
-          pacman: { ...prev.pacman, nextDirection: newDirection }
-        }));
+        handleDirectionChange(newDirection);
       }
     },
-    [gameState.gameStatus, startGame, resetGame]
+    [gameState.gameStatus, startGame, resetGame, handleDirectionChange]
   );
 
   const handleCollisions = useCallback(() => {
@@ -478,14 +492,16 @@ const PacManGame = () => {
   }, []);
 
   return (
-    <div className="flex flex-col items-center gap-4 p-4">
+    <div className="flex flex-col h-screen overflow-hidden">
       <GameUI 
         gameState={gameState}
         onStart={startGame}
         onPause={pauseGame}
         onReset={resetGame}
       />
-      <GameBoard gameState={gameState} />
+      <div className="flex-1 flex items-center justify-center min-h-0">
+        <GameBoard gameState={gameState} />
+      </div>
     </div>
   );
 };
