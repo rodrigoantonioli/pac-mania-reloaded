@@ -1,4 +1,3 @@
-
 import { GameState } from '@/types/game';
 import { MAZE_WIDTH, MAZE_HEIGHT, CELL_SIZE } from '@/utils/mazeData';
 
@@ -8,6 +7,37 @@ interface GameBoardProps {
 
 const GameBoard = ({ gameState }: GameBoardProps) => {
   const { maze, pacman, ghosts } = gameState;
+
+  // Calcular tamanho responsivo do cell
+  const getResponsiveCellSize = () => {
+    if (typeof window !== 'undefined') {
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      
+      // Para mobile (telas menores que 640px)
+      if (screenWidth < 640) {
+        const maxBoardWidth = screenWidth - 32; // padding lateral
+        const maxBoardHeight = screenHeight * 0.5; // 50% da altura da tela
+        
+        const cellByWidth = Math.floor(maxBoardWidth / MAZE_WIDTH);
+        const cellByHeight = Math.floor(maxBoardHeight / MAZE_HEIGHT);
+        
+        return Math.min(cellByWidth, cellByHeight, 16); // máximo 16px em mobile
+      }
+      
+      // Para tablet
+      if (screenWidth < 1024) {
+        return Math.min(CELL_SIZE, 20);
+      }
+      
+      // Para desktop
+      return CELL_SIZE;
+    }
+    
+    return CELL_SIZE;
+  };
+
+  const responsiveCellSize = getResponsiveCellSize();
 
   const getCellContent = (x: number, y: number) => {
     // Verificar se é a posição do Pac-Man
@@ -19,11 +49,23 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
         'DOWN': 'rotate-90'
       }[pacman.direction];
       
+      const pacmanSize = Math.max(responsiveCellSize * 0.7, 12);
+      
       return (
         <div className={`w-full h-full flex items-center justify-center ${rotation} transform transition-transform duration-100`}>
-          <div className="w-6 h-6 bg-yellow-400 rounded-full relative animate-pulse">
+          <div 
+            className="bg-yellow-400 rounded-full relative animate-pulse"
+            style={{ width: `${pacmanSize}px`, height: `${pacmanSize}px` }}
+          >
             {/* Boca do Pac-Man - mais visível */}
-            <div className="absolute top-1/2 right-0 w-0 h-0 border-l-[6px] border-l-black border-t-[3px] border-t-transparent border-b-[3px] border-b-transparent transform -translate-y-1/2" />
+            <div 
+              className="absolute top-1/2 right-0 border-l-black border-t-transparent border-b-transparent transform -translate-y-1/2"
+              style={{
+                borderLeftWidth: `${pacmanSize * 0.25}px`,
+                borderTopWidth: `${pacmanSize * 0.125}px`,
+                borderBottomWidth: `${pacmanSize * 0.125}px`
+              }}
+            />
           </div>
         </div>
       );
@@ -41,14 +83,18 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
       
       const isScared = ghostAtPosition.mode === 'frightened';
       const baseColor = isScared ? 'bg-blue-600' : ghostColors[ghostAtPosition.color as keyof typeof ghostColors];
+      const ghostSize = Math.max(responsiveCellSize * 0.7, 12);
       
       return (
         <div className="w-full h-full flex items-center justify-center">
-          <div className={`w-6 h-6 ${baseColor} relative transition-colors duration-300`}>
+          <div 
+            className={`${baseColor} relative transition-colors duration-300`}
+            style={{ width: `${ghostSize}px`, height: `${ghostSize}px` }}
+          >
             {/* Corpo principal do fantasma */}
-            <div className="w-full h-4 bg-current rounded-t-full"></div>
+            <div className="w-full h-4/6 bg-current rounded-t-full"></div>
             {/* Parte inferior com ondas */}
-            <div className="w-full h-2 bg-current relative overflow-hidden">
+            <div className="w-full h-2/6 bg-current relative overflow-hidden">
               <div className="absolute bottom-0 w-full h-full bg-current"
                    style={{
                      clipPath: 'polygon(0% 0%, 16.66% 100%, 33.33% 0%, 50% 100%, 66.66% 0%, 83.33% 100%, 100% 0%, 100% 0%)'
@@ -70,19 +116,28 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
 
     // Conteúdo baseado no maze
     const cellValue = maze[y] && maze[y][x] !== undefined ? maze[y][x] : 0;
+    const dotSize = Math.max(responsiveCellSize * 0.2, 3);
+    const powerPelletSize = Math.max(responsiveCellSize * 0.5, 8);
+    
     switch (cellValue) {
       case 0: // Parede
         return <div className="w-full h-full bg-blue-800 border border-blue-600 shadow-inner" />;
       case 1: // Dot
         return (
           <div className="w-full h-full flex items-center justify-center bg-black">
-            <div className="w-1.5 h-1.5 bg-yellow-300 rounded-full shadow-sm" />
+            <div 
+              className="bg-yellow-300 rounded-full shadow-sm"
+              style={{ width: `${dotSize}px`, height: `${dotSize}px` }}
+            />
           </div>
         );
       case 2: // Power pellet
         return (
           <div className="w-full h-full flex items-center justify-center bg-black">
-            <div className="w-4 h-4 bg-yellow-300 rounded-full animate-pulse shadow-lg" />
+            <div 
+              className="bg-yellow-300 rounded-full animate-pulse shadow-lg"
+              style={{ width: `${powerPelletSize}px`, height: `${powerPelletSize}px` }}
+            />
           </div>
         );
       case 3: // Espaço vazio
@@ -92,51 +147,53 @@ const GameBoard = ({ gameState }: GameBoardProps) => {
   };
 
   return (
-    <div className="relative bg-black border-4 border-blue-600 rounded-lg shadow-2xl overflow-hidden">
-      <div 
-        className="grid gap-0 mx-auto"
-        style={{
-          gridTemplateColumns: `repeat(${MAZE_WIDTH}, ${CELL_SIZE}px)`,
-          gridTemplateRows: `repeat(${MAZE_HEIGHT}, ${CELL_SIZE}px)`,
-          width: `${MAZE_WIDTH * CELL_SIZE}px`,
-          height: `${MAZE_HEIGHT * CELL_SIZE}px`
-        }}
-      >
-        {Array.from({ length: MAZE_HEIGHT }, (_, y) =>
-          Array.from({ length: MAZE_WIDTH }, (_, x) => (
-            <div
-              key={`${x}-${y}`}
-              className="relative"
-              style={{ width: `${CELL_SIZE}px`, height: `${CELL_SIZE}px` }}
-            >
-              {getCellContent(x, y)}
+    <div className="flex justify-center items-center w-full">
+      <div className="relative bg-black border-2 sm:border-4 border-blue-600 rounded-lg shadow-2xl overflow-hidden">
+        <div 
+          className="grid gap-0 mx-auto"
+          style={{
+            gridTemplateColumns: `repeat(${MAZE_WIDTH}, ${responsiveCellSize}px)`,
+            gridTemplateRows: `repeat(${MAZE_HEIGHT}, ${responsiveCellSize}px)`,
+            width: `${MAZE_WIDTH * responsiveCellSize}px`,
+            height: `${MAZE_HEIGHT * responsiveCellSize}px`
+          }}
+        >
+          {Array.from({ length: MAZE_HEIGHT }, (_, y) =>
+            Array.from({ length: MAZE_WIDTH }, (_, x) => (
+              <div
+                key={`${x}-${y}`}
+                className="relative"
+                style={{ width: `${responsiveCellSize}px`, height: `${responsiveCellSize}px` }}
+              >
+                {getCellContent(x, y)}
+              </div>
+            ))
+          )}
+        </div>
+        
+        {/* Overlay para status do jogo */}
+        {gameState.gameStatus !== 'playing' && (
+          <div className="absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center">
+            <div className="text-center">
+              {gameState.gameStatus === 'ready' && (
+                <div className="text-yellow-400 text-2xl sm:text-4xl font-bold animate-bounce font-mono">
+                  READY?
+                </div>
+              )}
+              {gameState.gameStatus === 'paused' && (
+                <div className="text-yellow-400 text-2xl sm:text-4xl font-bold font-mono">
+                  PAUSED
+                </div>
+              )}
+              {gameState.gameStatus === 'gameOver' && (
+                <div className="text-red-400 text-2xl sm:text-4xl font-bold animate-pulse font-mono">
+                  GAME OVER
+                </div>
+              )}
             </div>
-          ))
+          </div>
         )}
       </div>
-      
-      {/* Overlay para status do jogo */}
-      {gameState.gameStatus !== 'playing' && (
-        <div className="absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center">
-          <div className="text-center">
-            {gameState.gameStatus === 'ready' && (
-              <div className="text-yellow-400 text-4xl font-bold animate-bounce font-mono">
-                READY?
-              </div>
-            )}
-            {gameState.gameStatus === 'paused' && (
-              <div className="text-yellow-400 text-4xl font-bold font-mono">
-                PAUSED
-              </div>
-            )}
-            {gameState.gameStatus === 'gameOver' && (
-              <div className="text-red-400 text-4xl font-bold animate-pulse font-mono">
-                GAME OVER
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
